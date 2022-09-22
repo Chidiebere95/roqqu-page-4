@@ -34,7 +34,7 @@ import settings from "../images/page3/Settings-alt.svg";
 import promotions from "../images/page3/Fire.svg";
 import dots from "../images/page3/dots.PNG";
 import btc from "../images/page3/btc.svg";
-import loader from "../images/page3/loader.gif";
+import loader from "../images/page3/loading.gif";
 // import writeFileSync from 'fs'
 // import CanvasJSReact from "../canvasjs.react";
 // var CanvasJS = CanvasJSReact.CanvasJS;
@@ -48,11 +48,13 @@ import loader from "../images/page3/loader.gif";
 const Home = ({ title }) => {
   let ws = new WebSocket("wss://stream.binance.com:9443/ws/bnbbtc@kline_5m");
   const [showSideMenu, setShowSideMenu] = useState(false);
-  const [series, setSeries] = useState([{data:[]}]);
-  const[websocketCandle,setWebsocketCandle]=useState({
+  const [loading, setLoading] = useState(true);
+  const [loadingTable, setLoadingTable] = useState(true);
+  const [series, setSeries] = useState([{ data: [] }]);
+  const [websocketCandle, setWebsocketCandle] = useState({
     x: "",
     y: [],
-  })
+  });
   const [options, setOptions] = useState({
     chart: {
       type: "candlestick",
@@ -71,6 +73,13 @@ const Home = ({ title }) => {
       },
     },
   });
+  const [orderBook, setOrderBook] = useState({
+    lastUpdateId: "",
+    bids: [],
+    asks: [],
+  });
+  const [bids, setBids] = useState([]);
+  const [asks, setAsks] = useState([]);
 
   useEffect(() => {
     const seriesData = [
@@ -108,53 +117,74 @@ const Home = ({ title }) => {
             x: new Date(item[0]),
             y: [open, high, low, close],
           };
-          
+
           return objBinance;
         });
-        console.log(datas);
-        seriesData[0].data.push(...datas);
+        // console.log(datas);
+        const array = [...datas];
+        ws.onmessage = function (event) {
+      console.log("two");
+      const data = JSON.parse(event.data);
+      const { E, k } = data;
+      const { o, h, l, c } = k;
+      let open = parseFloat(o)*1000000;
+      let high = parseFloat(h)*1000000;
+      let low = parseFloat(l)*1000000;
+      let close = parseFloat(c)*1000000;
+      const web = {
+        x: new Date(E),
+        y: [open, high, low, close],
+      };
+
+      // const dataState=seriesData[0].data
+      // console.log(dataState);
+      array.push(web);
+      const stateData = series[0].data;
+      setSeries([
+        {
+          data: [...stateData, ...array],
+        },
+      ]);
+      // console.log(web);
+    };
+
+
+        setLoading(false);
+        const all=[...datas,...array]
+        seriesData[0].data.push(...all);
         setSeries(seriesData);
       } catch (error) {
         setSeries([]);
+        setLoading(true);
         console.log("axios error");
       }
       console.log("one");
     };
     fetchHistoricalDatas();
-    
-      
-    ws.onmessage = function (event) {
-      console.log("two");
-      const data = JSON.parse(event.data);
-      const { E, k } = data;
-      const { o, h, l, c } = k;
-      let open = parseFloat(o);
-      let high = parseFloat(h);
-      let low = parseFloat(l);
-      let close = parseFloat(c);
-      const web=
-        {
-          x:new Date(E),
-          y:[open,high,low,close]
-        }
-      
-        // const dataState=seriesData[0].data
-        // console.log(dataState);
-        const array=[]
-        array.push(web)
-        const stateData=series[0].data
-      setSeries([
-        {
-          data: [...stateData,...array]
-        },
-      ]);
-      console.log(web);
-    };
-    
-    console.log("useEffect");
-    console.log(series);
-  }, []);
 
+    
+    const fetchOrderbookData = async () => {
+      try {
+        const { data } = await axios.get(
+          "https://api.binance.com/api/v3/depth?limit=10&symbol=BTCUSDT"
+        );
+        // const orderBookData=JSON.parse(data)
+        // console.log(data);
+        const bids = data.bids.slice(0, 7);
+        const asks = data.asks.slice(0, 7);
+        setOrderBook(data);
+        setBids(bids);
+        setAsks(asks);
+        setLoadingTable(false);
+      } catch (error) {
+        setLoadingTable(true);
+      }
+    };
+    fetchOrderbookData();
+    // console.log("useEffect");
+    // console.log(series);
+  }, []);
+// console.log(series[0].data);
   return (
     <main className="main overflow-hidden  bg-gray-2">
       <nav className="nav flex h-20 px-12 pt-8 justify-between">
@@ -370,22 +400,26 @@ const Home = ({ title }) => {
                   </div>
                 </div>
               </div>
-              <div className="charts-container ">
+              <div className="charts-container  ">
                 {/* <Bar style={{}} options={chartOptions} data={chartData}/> */}
                 <ApexChart
                   options={options}
                   series={series}
                   type="candlestick"
                   height={370}
-                  className={` ${series === [] ? "hidden" : "block"}`}
+                  className={` ${loading ? "hidden" : "block"}`}
                 />
-                <img
-                  src={loader}
-                  alt="pre-load gif"
-                  className={`${
-                    series === [] ? "block" : "hidden"
-                  } w-full h-full`}
-                />
+                <div
+                  className={`bg-transparent w-full h-full flex items-center justify-center ${
+                    loading ? "block" : "hidden"
+                  }`}
+                >
+                  <img
+                    src={loader}
+                    alt="pre-load gif"
+                    className={` w-12 h-12`}
+                  />
+                </div>
                 {/* <CanvasJSChart options = {options} */}
                 {/* // onRef={ref => this.chart = ref}  */}
                 {/* />  */}
@@ -397,7 +431,7 @@ const Home = ({ title }) => {
               </div>
               <div className="order-book-inner">
                 <div className="top">
-                  <table className=" ">
+                  <table className={`${loadingTable ? "hidden" : "block"}`}>
                     <thead className="t-head">
                       <tr className="  text-xs ">
                         <th className=" text-left w-1/12 ">PRICE(USDT)</th>
@@ -405,78 +439,66 @@ const Home = ({ title }) => {
                         <th className="text-left">TOTAL (USDT)</th>
                       </tr>
                     </thead>
-                    <tbody className="t-body">
-                      <tr className=" capitalize">
-                        <td className=" text-xs red one">128299.304781</td>
-                        <td className=" text-xs">5.304781</td>
-                        <td className="text-xs">5.304781</td>
-                      </tr>
-
-                      <tr className=" capitalize">
-                        <td className=" text-xs red two">128299.30478</td>
-                        <td className=" text-xs">5.304781</td>
-                        <td className="text-xs">5.304781</td>
-                      </tr>
-                      <tr className=" capitalize">
-                        <td className=" text-xs red three">128299.30478</td>
-                        <td className=" text-xs">5.304781</td>
-                        <td className="text-xs">5.304781</td>
-                      </tr>
-                      <tr className=" capitalize">
-                        <td className=" text-xs red four">128299.30478</td>
-                        <td className=" text-xs">5.3047811</td>
-                        <td className="text-xs">5.304781</td>
-                      </tr>
-                      <tr className=" capitalize">
-                        <td className=" text-xs red five">128299.30478</td>
-                        <td className=" text-xs">5.304781</td>
-                        <td className="text-xs">5.304781</td>
-                      </tr>
-                      <tr className=" capitalize">
-                        <td className=" text-xs red six">128299.30478</td>
-                        <td className=" text-xs">5.304781</td>
-                        <td className="text-xs">5.304781</td>
-                      </tr>
+                    <tbody className="t-body ">
+                      {asks.map((item, index) => {
+                        // console.log(item);
+                        parseFloat(item[0]);
+                        parseFloat(item[1]);
+                        return (
+                          <tr className=" capitalize" key={index}>
+                            <td className=" text-xs red one">{item[0]}</td>
+                            <td className=" text-xs">{item[1]}</td>
+                            <td className="text-xs">{item[0] * item[1]}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
+                  <div
+                    className={` w-full h-full flex items-center justify-center bg-transparent ${
+                      loadingTable ? "block" : "hidden"
+                    }`}
+                  >
+                    <img
+                      src={loader}
+                      alt="pre-load gif"
+                      className={` w-6 h-6`}
+                    />
+                  </div>
                 </div>
                 <div className="center text-base">128299.304781 USDT</div>
                 <div className="bottom">
-                  <table className=" mt-2">
+                  <table
+                    className={`${loadingTable ? "hidden" : "block"} mt-2`}
+                  >
                     <tbody className="t-body">
-                      <tr className=" capitalize">
-                        <td className=" text-xs green one-g">128299.304781</td>
-                        <td className=" text-xs">5.304781</td>
-                        <td className="text-xs">5.304781</td>
-                      </tr>
+                      {bids.map((item, index) => {
+                        // const bids=[orderBook.bids[0],...,[orderBook.bids[5]]]
+                        // console.log(item);
+                        parseFloat(item[0]);
+                        parseFloat(item[1]);
 
-                      <tr className=" capitalize">
-                        <td className=" text-xs green two-g">128299.30478</td>
-                        <td className=" text-xs">5.304781</td>
-                        <td className="text-xs">5.304781</td>
-                      </tr>
-                      <tr className=" capitalize">
-                        <td className=" text-xs green three-g">128299.30478</td>
-                        <td className=" text-xs">5.304781</td>
-                        <td className="text-xs">5.304781</td>
-                      </tr>
-                      <tr className=" capitalize">
-                        <td className=" text-xs green four-g">128299.30478</td>
-                        <td className=" text-xs">5.3047811</td>
-                        <td className="text-xs">5.304781</td>
-                      </tr>
-                      <tr className=" capitalize">
-                        <td className=" text-xs green five-g">128299.30478</td>
-                        <td className=" text-xs">5.304781</td>
-                        <td className="text-xs">5.304781</td>
-                      </tr>
-                      <tr className=" capitalize">
-                        <td className=" text-xs green six-g">128299.30478</td>
-                        <td className=" text-xs">5.304781</td>
-                        <td className="text-xs">5.304781</td>
-                      </tr>
+                        return (
+                          <tr className=" capitalize" key={index}>
+                            <td className=" text-xs green one">{item[0]}</td>
+                            <td className=" text-xs">{item[1]}</td>
+                            <td className="text-xs">{item[0] * item[1]}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
+                  <div
+                    className={` w-full h-full flex items-center justify-center bg-transparent ${
+                      loadingTable ? "block" : "hidden"
+                    }`}
+                  >
+                    <img
+                      src={loader}
+                      alt="pre-load gif"
+                      className={` w-6 h-6`}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
