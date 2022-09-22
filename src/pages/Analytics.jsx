@@ -1,14 +1,4 @@
 import React, { useState, useEffect } from "react";
-// import {
-//   Chart as ChartJS,
-//   CategoryScale,
-//   LinearScale,
-//   BarElement,
-//   Title,
-//   Tooltip,
-//   Legend,
-// } from "chart.js";
-// import {Bar} from 'react-chartjs-2'
 import axios from "axios";
 import ApexChart from "react-apexcharts";
 import {
@@ -20,11 +10,10 @@ import {
   FaWeight,
   FaChartBar,
   FaCamera,
-  FaTags,
+  FaTags
 } from "react-icons/fa";
 import logo from "../images/page3/roqqu_logo.png";
 import user from "../images/page3/user.png";
-
 import notification from "../images/page3/notification.png";
 import chart from "../images/page3/noun_bar chart.svg";
 import wallet from "../images/page3/Wallet.svg";
@@ -35,18 +24,9 @@ import promotions from "../images/page3/Fire.svg";
 import dots from "../images/page3/dots.PNG";
 import btc from "../images/page3/btc.svg";
 import loader from "../images/page3/loading.gif";
-// import writeFileSync from 'fs'
-// import CanvasJSReact from "../canvasjs.react";
-// var CanvasJS = CanvasJSReact.CanvasJS;
-// var CanvasJSChart = CanvasJSReact.CanvasJSChart;
 
-// writeFileSync(
-//   '/content-result-sync.txt',
-//   'here is the result'
-// )
-
-const Home = ({ title }) => {
-  let ws = new WebSocket("wss://stream.binance.com:9443/ws/bnbbtc@kline_5m");
+const Analytics = ({ title }) => {
+  let ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@kline_5m");
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingTable, setLoadingTable] = useState(true);
@@ -127,10 +107,10 @@ const Home = ({ title }) => {
       const data = JSON.parse(event.data);
       const { E, k } = data;
       const { o, h, l, c } = k;
-      let open = parseFloat(o)*1000000;
-      let high = parseFloat(h)*1000000;
-      let low = parseFloat(l)*1000000;
-      let close = parseFloat(c)*1000000;
+      let open = parseFloat(o);
+      let high = parseFloat(h);
+      let low = parseFloat(l);
+      let close = parseFloat(c);
       const web = {
         x: new Date(E),
         y: [open, high, low, close],
@@ -401,7 +381,6 @@ const Home = ({ title }) => {
                 </div>
               </div>
               <div className="charts-container  ">
-                {/* <Bar style={{}} options={chartOptions} data={chartData}/> */}
                 <ApexChart
                   options={options}
                   series={series}
@@ -420,9 +399,7 @@ const Home = ({ title }) => {
                     className={` w-12 h-12`}
                   />
                 </div>
-                {/* <CanvasJSChart options = {options} */}
-                {/* // onRef={ref => this.chart = ref}  */}
-                {/* />  */}
+               
               </div>
             </div>
             <div className="order-book">
@@ -530,9 +507,8 @@ const Home = ({ title }) => {
           </div>
         </div>
       </section>
-      {/* <div className="h-10 bg-red-500 xl:bg-blue-500 2xl:bg-green-500"></div> */}
     </main>
   );
 };
 
-export default Home;
+export default Analytics;
