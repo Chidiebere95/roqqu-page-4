@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect,useRef } from "react";
 import axios from "axios";
 import ApexChart from "react-apexcharts";
 import {
@@ -10,7 +10,7 @@ import {
   FaWeight,
   FaChartBar,
   FaCamera,
-  FaTags
+  FaTags,
 } from "react-icons/fa";
 import logo from "../images/page3/roqqu_logo.png";
 import user from "../images/page3/user.png";
@@ -26,15 +26,12 @@ import btc from "../images/page3/btc.svg";
 import loader from "../images/page3/loading.gif";
 
 const Analytics = ({ title }) => {
-  let ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@kline_5m");
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingTable, setLoadingTable] = useState(true);
   const [series, setSeries] = useState([{ data: [] }]);
-  const [websocketCandle, setWebsocketCandle] = useState({
-    x: "",
-    y: [],
-  });
+  const [price,setPrice]=useState(null)
+  
   const [options, setOptions] = useState({
     chart: {
       type: "candlestick",
@@ -60,8 +57,12 @@ const Analytics = ({ title }) => {
   });
   const [bids, setBids] = useState([]);
   const [asks, setAsks] = useState([]);
+  const [candlesticksArray, setCandleSticksArray]=useState([])
+  let ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@kline_5m");
+  let wo=new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade')
 
-  useEffect(() => {
+  const priceContainer = useRef(null);
+  useEffect(() => { 
     const seriesData = [
       {
         data: [],
@@ -73,8 +74,7 @@ const Analytics = ({ title }) => {
           "https://www.binance.com/api/v3/uiKlines?limit=1000&symbol=BTCBUSD&interval=1w"
         );
         // console.log(data);
-        console.log("success");
-
+        // console.log("success");
         const datas = data.map((item) => {
           let o = item[1];
           const open = parseFloat(o);
@@ -102,35 +102,37 @@ const Analytics = ({ title }) => {
         });
         // console.log(datas);
         const array = [...datas];
+        setCandleSticksArray( [...datas]) 
+        
         ws.onmessage = function (event) {
-      console.log("two");
-      const data = JSON.parse(event.data);
-      const { E, k } = data;
-      const { o, h, l, c } = k;
-      let open = parseFloat(o);
-      let high = parseFloat(h);
-      let low = parseFloat(l);
-      let close = parseFloat(c);
-      const web = {
-        x: new Date(E),
-        y: [open, high, low, close],
-      };
+          // console.log("two");
+          const data = JSON.parse(event.data);
+          const { E, k } = data;
+          const { o, h, l, c } = k;
+          let open = parseFloat(o);
+          let high = parseFloat(h);
+          let low = parseFloat(l);
+          let close = parseFloat(c);
+          const web = {
+            x: new Date(E),
+            y: [open, high, low, close],
+          };
 
-      // const dataState=seriesData[0].data
-      // console.log(dataState);
-      array.push(web);
-      const stateData = series[0].data;
-      setSeries([
-        {
-          data: [...stateData, ...array],
-        },
-      ]);
-      // console.log(web);
-    };
-
+          // const dataState=seriesData[0].data
+          // console.log(dataState);
+          array.push(web);
+          setCandleSticksArray([...candlesticksArray,web])
+          const stateData = series[0].data;
+          setSeries([
+            {
+              data: [...stateData, ...array],
+            },
+          ]);
+          // console.log(web);
+        };
 
         setLoading(false);
-        const all=[...datas,...array]
+        const all = [...datas, ...candlesticksArray];
         seriesData[0].data.push(...all);
         setSeries(seriesData);
       } catch (error) {
@@ -138,18 +140,15 @@ const Analytics = ({ title }) => {
         setLoading(true);
         console.log("axios error");
       }
-      console.log("one");
+      // console.log("one");
     };
     fetchHistoricalDatas();
 
-    
     const fetchOrderbookData = async () => {
       try {
         const { data } = await axios.get(
           "https://api.binance.com/api/v3/depth?limit=10&symbol=BTCUSDT"
         );
-        // const orderBookData=JSON.parse(data)
-        // console.log(data);
         const bids = data.bids.slice(0, 7);
         const asks = data.asks.slice(0, 7);
         setOrderBook(data);
@@ -161,10 +160,23 @@ const Analytics = ({ title }) => {
       }
     };
     fetchOrderbookData();
+
+    const fetchLiveOrderBookData=()=>{
+      let stcPrice=null
+      wo.onmessage=(event)=>{
+        const data=JSON.parse( event.data)
+        const priceBTC=parseFloat(data.p).toFixed(2)
+        priceContainer.current.style.color= !stcPrice || stcPrice === priceBTC? 'white': priceBTC > stcPrice ? 'green': 'red'
+        stcPrice=priceBTC
+        setPrice(priceBTC)
+        // console.log(data);
+      }
+      // console.log('order book');
+    }
+    fetchLiveOrderBookData()
     // console.log("useEffect");
-    // console.log(series);
   }, []);
-// console.log(series[0].data);
+  // console.log(series[0].data);
   return (
     <main className="main overflow-hidden  bg-gray-2">
       <nav className="nav flex h-20 px-12 pt-8 justify-between">
@@ -247,6 +259,7 @@ const Analytics = ({ title }) => {
             <div className="menu-2-text-container">notifications</div>
           </div>
         </div>{" "}
+
         {/* analytics page */}
         <div className="bg-gray-5">
           <div className="info">
@@ -399,7 +412,6 @@ const Analytics = ({ title }) => {
                     className={` w-12 h-12`}
                   />
                 </div>
-               
               </div>
             </div>
             <div className="order-book">
@@ -443,7 +455,7 @@ const Analytics = ({ title }) => {
                     />
                   </div>
                 </div>
-                <div className="center text-base">128299.304781 USDT</div>
+                <div  ref={priceContainer} className="center text-base">{price} USDT</div>
                 <div className="bottom">
                   <table
                     className={`${loadingTable ? "hidden" : "block"} mt-2`}
